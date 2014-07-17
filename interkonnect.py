@@ -9,6 +9,7 @@ import time
 import queue
 
 from constants import *
+from eth_cable_monitor import *
 from wifi_scanner import *
 
 class InterKonnect:
@@ -62,15 +63,22 @@ class InterKonnect:
     self.scan_thread = WifiScanThread(self.wifi_dev, self.event_queue)
     self.scan_thread.start()
 
+    self.cable_mon_thread = EthernetCableMonitor(self.eth_dev, self.event_queue)
+    self.cable_mon_thread.start()
+
     while True:
       event = self.event_queue.get()
-      type = event['type']
-      args = event['args']
+      type = event[0]
+      dev = event[1]
+      args = event[2]
       print('EVENT: ' + type)
 
       if type == 'wifi_stations':
         stations = args
         print('best station is: ' + stations[0]['SSID'])
+      elif type == 'cable_state_change':
+        print('cable is now: ' + args)
+        pass
       else:
         pass
 

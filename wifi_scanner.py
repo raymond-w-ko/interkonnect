@@ -43,9 +43,6 @@ class WifiScanThread(threading.Thread):
       stations.sort(key=getkey)
       stations.reverse()
 
-      event = {}
-      event['type'] = 'wifi_stations'
-      event['args'] = stations
-      self.event_queue.put(event)
+      self.event_queue.put(['wifi_stations', self.dev, stations])
 
       time.sleep(WIFI_SCAN_INTERVAL)
