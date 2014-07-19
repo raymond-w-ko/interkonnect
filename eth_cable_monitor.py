@@ -14,7 +14,7 @@ class EthernetCableMonitor(threading.Thread):
 
   def run(self):
     path = '/sys/class/net/' + self.dev + '/carrier'
-    m = {0 : 'down', 1 : 'up'}
+    m = {0 : 'disconnected', 1 : 'connected'}
 
     while True:
       f = open(path, 'r')

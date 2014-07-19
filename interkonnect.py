@@ -78,7 +78,6 @@ class InterKonnect:
         print('best station is: ' + stations[0]['SSID'])
       elif type == 'cable_state_change':
         print('cable is now: ' + args)
-        pass
       else:
         pass
 
