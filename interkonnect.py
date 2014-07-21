@@ -7,17 +7,20 @@ import re
 import threading
 import time
 import queue
+import signal
 
 from constants import *
 from eth_cable_monitor import *
-from wifi_scanner import *
+from wifi_connection import *
 
 class InterKonnect:
-
   def __init__(self):
     self.eth_dev = None
     self.wifi_dev = None
 
+    self.wifi_connection = None
+
+    # TODO: remove this
     self.event_queue = queue.Queue()
 
   def discover_devices(self):
@@ -55,27 +58,44 @@ class InterKonnect:
     print('bringing device up (%s)' % (cmd))
     subprocess.check_call(cmd, shell=True)
 
+  def install_ctrl_c_handler(self):
+    self.num_interrupts = 0
+
+    def signal_handler(signal, frame):
+      self.num_interrupts += 1
+      if self.num_interrupts > 1:
+        return
+
+      self.event_queue.put(['exiting', ''])
+
+      if self.wifi_connection != None:
+        self.wifi_connection.cleanup()
+
+      import hanging_threads
+      sys.exit(0)
+
+    signal.signal(signal.SIGINT, signal_handler)
+
   def run(self):
+    self.install_ctrl_c_handler()
+
     self.discover_devices()
     self.bring_device_up(self.eth_dev)
     self.bring_device_up(self.wifi_dev)
 
-    self.scan_thread = WifiScanThread(self.wifi_dev, self.event_queue)
-    self.scan_thread.start()
+    self.wifi_connection = WifiConnection(self.wifi_dev)
+    self.wifi_connection.start()
 
-    self.cable_mon_thread = EthernetCableMonitor(self.eth_dev, self.event_queue)
-    self.cable_mon_thread.start()
+    #self.cable_mon_thread = EthernetCableMonitor(self.eth_dev, self.event_queue)
+    #self.cable_mon_thread.start()
 
     while True:
       event = self.event_queue.get()
       type = event[0]
-      dev = event[1]
-      args = event[2]
-      print('EVENT: ' + type)
+      args = event[1]
 
-      if type == 'wifi_stations':
-        stations = args
-        print('best station is: ' + stations[0]['SSID'])
+      if type == 'exiting':
+        break
       elif type == 'cable_state_change':
         print('cable is now: ' + args)
       else:
