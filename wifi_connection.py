@@ -107,13 +107,15 @@ class WifiConnection(threading.Thread):
   def listen_to_wpa_supplicant(self):
     while True:
       try:
-        for line in self.wpa_supplicant:
-          line = line.decode('utf-8').strip()
-          if len(line) == 0:
-            continue
+        line = self.wpa_supplicant.readline()
+        line = line.decode('utf-8').strip()
+        if len(line) > 0:
           self.event_queue.put(['wpa_supplicant', line])
+        if self.wpa_supplicant == None or not self.wpa_supplicant.isalive():
+          print('quitting wpa_supplicant listener thread due to program death')
+          return
       except pexpect.TIMEOUT:
-        if not self.wpa_supplicant.isalive():
+        if self.wpa_supplicant == None or not self.wpa_supplicant.isalive():
           print('quitting wpa_supplicant listener thread due to program death')
           return
       except Exception as e:
@@ -151,13 +153,15 @@ class WifiConnection(threading.Thread):
   def listen_to_dhcpcd(self):
     while True:
       try:
-        for line in self.dhcpcd:
-          line = line.decode('utf-8').strip()
-          if len(line) == 0:
-            continue
+        line = self.dhcpcd.readline()
+        line = line.decode('utf-8').strip()
+        if len(line) > 0:
           self.event_queue.put(['dhcpcd', line])
+        if self.dhcpcd == None or not self.dhcpcd.isalive():
+          print('quitting dhcpcd listener thread due to program death')
+          return
       except pexpect.TIMEOUT:
-        if not self.dhcpcd.isalive():
+        if self.dhcpcd == None or not self.dhcpcd.isalive():
           print('quitting dhcpcd listener thread due to program death')
           return
       except Exception as e:
@@ -190,7 +194,8 @@ class WifiConnection(threading.Thread):
       print('wpa_supplicant reports connection successful, starting dhcpcd')
       self.start_dhcpcd()
     elif msg.startswith('CTRL-EVENT-DISCONNECTED'):
-      pass
+      if self.dhcpcd != None:
+        self.dhcpcd.close(force=True)
 
   def on_dhcpcd(self, args):
     m = re.match(r'dhcpcd\[(\d+)\]: (.+): (.+)', args)
