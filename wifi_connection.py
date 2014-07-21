@@ -100,22 +100,26 @@ class WifiConnection(threading.Thread):
       self.wpa_supplicant = None
 
     cmd = '%s -i %s -c %s' % (WPA_SUPPLICANT, self.dev, cred_path)
-    self.wpa_supplicant = pexpect.spawn(cmd, timeout=99999999)
+    self.wpa_supplicant = pexpect.spawn(cmd, timeout=5)
     self.wpa_supplicant_reader = threading.Thread(target=self.listen_to_wpa_supplicant)
-    self.wpa_supplicant_reader.daemon = True
     self.wpa_supplicant_reader.start()
 
   def listen_to_wpa_supplicant(self):
-    try:
-      while True:
+    while True:
+      try:
         for line in self.wpa_supplicant:
           line = line.decode('utf-8').strip()
           if len(line) == 0:
             continue
           self.event_queue.put(['wpa_supplicant', line])
-    except Exception as e:
-      print(e)
-      print('wpa_supplicant listener thread died')
+      except pexpect.TIMEOUT:
+        if not self.wpa_supplicant.isalive():
+          print('quitting wpa_supplicant listener thread due to program death')
+          return
+      except Exception as e:
+        print('wpa_supplicant listener thread died')
+        print(e)
+        return
 
   def start_dhcpcd(self):
     if self.dhcpcd != None:
@@ -140,22 +144,26 @@ class WifiConnection(threading.Thread):
     cmd += '%s'
     cmd = cmd % (DHCPCD, self.dev)
 
-    self.dhcpcd = pexpect.spawn(cmd, timeout=99999999)
+    self.dhcpcd = pexpect.spawn(cmd, timeout=5)
     self.dhcpcd_reader = threading.Thread(target=self.listen_to_dhcpcd)
-    self.dhcpcd_reader.daemon = True
     self.dhcpcd_reader.start()
 
   def listen_to_dhcpcd(self):
-    try:
-      while True:
+    while True:
+      try:
         for line in self.dhcpcd:
           line = line.decode('utf-8').strip()
           if len(line) == 0:
             continue
           self.event_queue.put(['dhcpcd', line])
-    except Exception as e:
-      print(e)
-      print('dhcpcd listener thread died')
+      except pexpect.TIMEOUT:
+        if not self.dhcpcd.isalive():
+          print('quitting dhcpcd listener thread due to program death')
+          return
+      except Exception as e:
+        print('dhcpcd listener thread died:')
+        print(e)
+        return
 
   def on_wifi_stations(self, args):
     stations = args
@@ -179,54 +187,56 @@ class WifiConnection(threading.Thread):
       return
     msg = m.group(1)
     if msg.startswith('CTRL-EVENT-CONNECTED'):
+      print('wpa_supplicant reports connection successful, starting dhcpcd')
       self.start_dhcpcd()
     elif msg.startswith('CTRL-EVENT-DISCONNECTED'):
       pass
+
+  def on_dhcpcd(self, args):
+    m = re.match(r'dhcpcd\[(\d+)\]: (.+): (.+)', args)
+    if m == None:
+      return
+    pid = m.group(1)
+    dev = m.group(2)
+    msg = m.group(3)
+
+    m = re.match(r'acknowledged ([\d\.]+) from ([\d\.]+)', msg)
+    if m != None:
+      myip = m.group(1)
+      gateway = m.group(2)
+      print('gateway: ' + gateway)
+
+    m = re.match(r'adding IP address ([\d\.]+)/(\d+)', msg)
+    if m != None:
+      myip = m.group(1)
+      subnetmask = m.group(2)
+      print('my ip address: ' + myip)
+
+    m = re.match(r'adding route to ([\d\.]+)/(\d+)', msg)
+    if m != None:
+      routeip = m.group(1)
+      subnetmask = m.group(2)
+      print('adding route to: ' + routeip + '/' + subnetmask)
+
+    m = re.match(r'adding default route via ([\d\.]+)', msg)
+    if m != None:
+      gateway = m.group(1)
+      print('adding default route via: ' + gateway)
 
 
   def run(self):
     dispatcher = {}
     dispatcher['wifi_stations'] = self.on_wifi_stations
     dispatcher['wpa_supplicant'] = self.on_wpa_supplicant
+    dispatcher['dhcpcd'] = self.on_dhcpcd
 
     while True:
       event = self.event_queue.get()
-      type = event[0]
+      event_type = event[0]
       args = event[1]
 
-      if type == 'exiting':
+      if event_type == 'exiting':
         break
 
-      if event in dispatcher:
-        dispatcher[event](args)
-
-      elif type == 'dhcpcd':
-        m = re.match(r'dhcpcd\[(\d+)\]: (.+): (.+)', args)
-        if m == None:
-          continue
-        pid = m.group(1)
-        dev = m.group(2)
-        msg = m.group(3)
-
-        m = re.match(r'acknowledged ([\d\.]+) from ([\d\.]+)', msg)
-        if m != None:
-          myip = m.group(1)
-          gateway = m.group(2)
-          print('gateway: ' + gateway)
-
-        m = re.match(r'adding IP address ([\d\.]+)/(\d+)', msg)
-        if m != None:
-          myip = m.group(1)
-          subnetmask = m.group(2)
-          print('my ip address: ' + myip)
-
-        m = re.match(r'adding route to ([\d\.]+)/(\d+)', msg)
-        if m != None:
-          routeip = m.group(1)
-          subnetmask = m.group(2)
-          print('adding route to: ' + routeip + '/' + subnetmask)
-
-        m = re.match(r'adding default route via ([\d\.]+)', msg)
-        if m != None:
-          gateway = m.group(1)
-          print('adding default route via: ' + gateway)
+      if event_type in dispatcher:
+        dispatcher[event_type](args)
