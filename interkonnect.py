@@ -24,8 +24,6 @@ class InterKonnect:
     self.event_queue = queue.Queue()
 
   def discover_devices(self):
-    print('discovering interfaces')
-
     cmd = '%s link list' % (IP)
     output = subprocess.check_output(cmd, shell=True).decode('utf-8')
     lines = output.split('\n')
@@ -50,8 +48,7 @@ class InterKonnect:
     if self.wifi_dev == None:
       assert False, 'failed to find wireless device'
 
-    print('using ethernet device: ' + self.eth_dev)
-    print('using wireless device: ' + self.wifi_dev)
+    print('using ethernet device %s and wireless device %s' % (self.eth_dev, self.wifi_dev))
 
   def bring_device_up(self, dev):
     cmd = '%s link set %s up' % (IP, dev)

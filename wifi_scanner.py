@@ -2,6 +2,7 @@ import threading
 import subprocess
 import re
 import time
+import wifi_connection
 
 from constants import *
 
@@ -53,6 +54,6 @@ class WifiScanThread(threading.Thread):
     while True:
       if self.exiting:
         break
-      if not self.parent.connected:
+      if self.parent.state == wifi_connection.State.DISCONNECTED:
         self.scan()
       time.sleep(WIFI_SCAN_INTERVAL)

@@ -12,13 +12,19 @@ from wifi_scanner import *
 
 METRIC = 9001
 
+class State:
+  DISCONNECTED = -1
+  CONNECTING = 0
+  CONNECTED = 1
+
 class WifiConnection(threading.Thread):
+
   def __init__(self, dev):
     threading.Thread.__init__(self)
 
     self.dev = dev
     self.event_queue = queue.Queue()
-    self.connected = False
+    self.state = State.DISCONNECTED
     self.temp_files = []
 
     self.wpa_supplicant = None
@@ -63,15 +69,14 @@ class WifiConnection(threading.Thread):
     # TODO: need better heuristic in case there are two valid WiFi stations and
     # I am moving between them. So far, the last time this happened, I was in
     # college. Assume for now there is no reason to switch while you are connected
-    if self.connected:
+    if self.state >= State.CONNECTING:
       return
 
     print('connecting to wifi station "%s" (%s)' % (station['SSID'], station['bssid']))
+    self.state = State.CONNECTING
 
     cred_path = self.prepare_credentials(station)
     self.start_wpa_supplicant(cred_path)
-
-    self.connected = True
 
   def prepare_credentials(self, station):
     ssid = station['SSID']
@@ -191,11 +196,18 @@ class WifiConnection(threading.Thread):
       return
     msg = m.group(1)
     if msg.startswith('CTRL-EVENT-CONNECTED'):
-      print('wpa_supplicant reports connection successful, starting dhcpcd')
+      print('wpa_supplicant reports successful connection, starting dhcpcd')
+      self.state = State.CONNECTED
       self.start_dhcpcd()
     elif msg.startswith('CTRL-EVENT-DISCONNECTED'):
+      print('wpa_supplicant reports disconnection, killing dhcpcd and wpa_supplicant')
+
       if self.dhcpcd != None:
         self.dhcpcd.close(force=True)
+      if self.wpa_supplicant != None:
+        self.wpa_supplicant.close(force=True)
+
+      self.state = State.DISCONNECTED
 
   def on_dhcpcd(self, args):
     m = re.match(r'dhcpcd\[(\d+)\]: (.+): (.+)', args)
