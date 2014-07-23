@@ -107,6 +107,7 @@ class WifiConnection(threading.Thread):
     cmd = '%s -i %s -c %s' % (WPA_SUPPLICANT, self.dev, cred_path)
     self.wpa_supplicant = pexpect.spawn(cmd, timeout=5)
     self.wpa_supplicant_reader = threading.Thread(target=self.listen_to_wpa_supplicant)
+    self.wpa_supplicant_reader.daemon = True
     self.wpa_supplicant_reader.start()
 
   def listen_to_wpa_supplicant(self):
@@ -116,17 +117,8 @@ class WifiConnection(threading.Thread):
         line = line.decode('utf-8').strip()
         if len(line) > 0:
           self.event_queue.put(['wpa_supplicant', line])
-        if self.wpa_supplicant == None or not self.wpa_supplicant.isalive():
-          print('quitting wpa_supplicant listener thread due to program death')
-          return
-      except pexpect.TIMEOUT:
-        if self.wpa_supplicant == None or not self.wpa_supplicant.isalive():
-          print('quitting wpa_supplicant listener thread due to program death')
-          return
-      except Exception as e:
-        print('wpa_supplicant listener thread died')
-        print(e)
-        return
+      except:
+        pass
 
   def start_dhcpcd(self):
     if self.dhcpcd != None:
@@ -153,6 +145,7 @@ class WifiConnection(threading.Thread):
 
     self.dhcpcd = pexpect.spawn(cmd, timeout=5)
     self.dhcpcd_reader = threading.Thread(target=self.listen_to_dhcpcd)
+    self.dhcpcd_reader.daemon = True
     self.dhcpcd_reader.start()
 
   def listen_to_dhcpcd(self):
@@ -162,17 +155,8 @@ class WifiConnection(threading.Thread):
         line = line.decode('utf-8').strip()
         if len(line) > 0:
           self.event_queue.put(['dhcpcd', line])
-        if self.dhcpcd == None or not self.dhcpcd.isalive():
-          print('quitting dhcpcd listener thread due to program death')
-          return
-      except pexpect.TIMEOUT:
-        if self.dhcpcd == None or not self.dhcpcd.isalive():
-          print('quitting dhcpcd listener thread due to program death')
-          return
-      except Exception as e:
-        print('dhcpcd listener thread died:')
-        print(e)
-        return
+      except:
+        pass
 
   def on_wifi_stations(self, args):
     stations = args

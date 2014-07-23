@@ -10,8 +10,8 @@ import queue
 import signal
 
 from constants import *
-from eth_cable_monitor import *
 from wifi_connection import *
+from ethernet_connection import *
 
 class InterKonnect:
   def __init__(self):
@@ -67,6 +67,8 @@ class InterKonnect:
 
       if self.wifi_connection != None:
         self.wifi_connection.cleanup()
+      if self.ethernet_connection != None:
+        self.ethernet_connection.cleanup()
 
       import hanging_threads
       sys.exit(0)
@@ -83,8 +85,8 @@ class InterKonnect:
     self.wifi_connection = WifiConnection(self.wifi_dev)
     self.wifi_connection.start()
 
-    #self.cable_mon_thread = EthernetCableMonitor(self.eth_dev, self.event_queue)
-    #self.cable_mon_thread.start()
+    self.ethernet_connection = EthernetConnection(self.eth_dev)
+    self.ethernet_connection.start()
 
     while True:
       event = self.event_queue.get()
@@ -93,10 +95,6 @@ class InterKonnect:
 
       if type == 'exiting':
         break
-      elif type == 'cable_state_change':
-        print('cable is now: ' + args)
-      else:
-        pass
 
 if __name__ == '__main__':
   if os.geteuid() != 0:
