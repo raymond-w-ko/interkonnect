@@ -29,6 +29,14 @@ class EthernetConnection(threading.Thread):
     self.cable_mon_thread = EthernetCableMonitor(self)
     self.cable_mon_thread.start()
 
+  def kill_dhcpcd(self):
+    try:
+      if self.dhcpcd != None:
+        self.dhcpcd.close(force=True)
+        self.dhcpcd = None
+    except:
+      pass
+
   def cleanup(self):
     self.event_queue.put(['exiting', ''])
     self.cable_mon_thread.exiting = True
@@ -36,18 +44,14 @@ class EthernetConnection(threading.Thread):
   def on_cable_state_change(self, args):
     if args == 'disconnected':
       print('cable disconnected, killing dhcpcd')
-      if self.dhcpcd != None:
-        self.dhcpcd.close(force=True)
-        self.dhcpcd = None
+      self.kill_dhcpcd()
     elif args == 'connected':
       print('cable connected, starting dhcpcd')
       self.state = State.CONNECTED
       self.start_dhcpcd()
 
   def start_dhcpcd(self):
-    if self.dhcpcd != None:
-      self.dhcpcd.close(force=True)
-      self.dhcpcd = None
+    self.kill_dhcpcd()
 
     cmd = '%s '
     # manually manage route to allow VPN killswitch

@@ -35,17 +35,28 @@ class WifiConnection(threading.Thread):
     self.scanner_thread = WifiScanThread(self)
     self.scanner_thread.start()
 
+  def kill_wpa_supplicant(self):
+    try:
+      if self.wpa_supplicant != None:
+        self.wpa_supplicant.close(force=True)
+        self.wpa_supplicant = None
+    except:
+      pass
+
+  def kill_dhcpcd(self):
+    try:
+      if self.dhcpcd != None:
+        self.dhcpcd.close(force=True)
+        self.dhcpcd = None
+    except:
+      pass
+
   def cleanup(self):
     self.event_queue.put(['exiting', ''])
     self.scanner_thread.exiting = True
 
-    if self.wpa_supplicant != None:
-      self.wpa_supplicant.close(force=True)
-      self.wpa_supplicant = None
-
-    if self.dhcpcd != None:
-      self.dhcpcd.close(force=True)
-      self.dhcpcd = None
+    self.kill_wpa_supplicant()
+    self.kill_dhcpcd()
 
     for file in self.temp_files:
       os.remove(file)
@@ -100,9 +111,7 @@ class WifiConnection(threading.Thread):
     return path
 
   def start_wpa_supplicant(self, cred_path):
-    if self.wpa_supplicant != None:
-      self.wpa_supplicant.close(force=True)
-      self.wpa_supplicant = None
+    self.kill_wpa_supplicant()
 
     cmd = '%s -i %s -c %s' % (WPA_SUPPLICANT, self.dev, cred_path)
     self.wpa_supplicant = pexpect.spawn(cmd, timeout=5)
@@ -121,9 +130,7 @@ class WifiConnection(threading.Thread):
         pass
 
   def start_dhcpcd(self):
-    if self.dhcpcd != None:
-      self.dhcpcd.close(force=True)
-      self.dhcpcd = None
+    self.kill_dhcpcd()
 
     cmd = '%s '
     # manually manage route to allow VPN killswitch
@@ -186,10 +193,8 @@ class WifiConnection(threading.Thread):
     elif msg.startswith('CTRL-EVENT-DISCONNECTED'):
       print('wpa_supplicant reports disconnection, killing dhcpcd and wpa_supplicant')
 
-      if self.dhcpcd != None:
-        self.dhcpcd.close(force=True)
-      if self.wpa_supplicant != None:
-        self.wpa_supplicant.close(force=True)
+      self.kill_dhcpcd()
+      self.kill_wpa_supplicant()
 
       self.state = State.DISCONNECTED
 
