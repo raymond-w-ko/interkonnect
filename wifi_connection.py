@@ -218,7 +218,7 @@ class WifiConnection(threading.Thread):
     best_station = None
     for station in stations:
       ssid = station['SSID']
-      if self.recognized_connections[ssid]:
+      if ssid in self.recognized_connections:
         best_station = station
         break
 
