@@ -6,6 +6,7 @@ import queue
 import os
 import tempfile
 import pexpect
+import sys
 
 from constants import *
 from wifi_scanner import *
@@ -24,6 +25,7 @@ class WifiConnection(threading.Thread):
 
     self.dev = dev
     self.event_queue = queue.Queue()
+    self.print('entering DISCONNECTED state')
     self.state = State.DISCONNECTED
     self.temp_files = []
 
@@ -34,6 +36,12 @@ class WifiConnection(threading.Thread):
 
     self.scanner_thread = WifiScanThread(self)
     self.scanner_thread.start()
+
+  def print(self, msg):
+    sys.stdout.write(self.dev)
+    sys.stdout.write(': ')
+    sys.stdout.write(msg)
+    sys.stdout.write('\n')
 
   def kill_wpa_supplicant(self):
     try:
@@ -83,7 +91,8 @@ class WifiConnection(threading.Thread):
     if self.state >= State.CONNECTING:
       return
 
-    print('connecting to wifi station "%s" (%s)' % (station['SSID'], station['bssid']))
+    self.print('connecting to wifi station "%s" (%s)' % (station['SSID'], station['bssid']))
+    self.print('entering CONNECTING state')
     self.state = State.CONNECTING
 
     cred_path = self.prepare_credentials(station)
@@ -187,15 +196,15 @@ class WifiConnection(threading.Thread):
       return
     msg = m.group(1)
     if msg.startswith('CTRL-EVENT-CONNECTED'):
-      print('wpa_supplicant reports successful connection, starting dhcpcd')
-      self.state = State.CONNECTED
+      self.print('wpa_supplicant reports successful connection, starting dhcpcd')
       self.start_dhcpcd()
     elif msg.startswith('CTRL-EVENT-DISCONNECTED'):
-      print('wpa_supplicant reports disconnection, killing dhcpcd and wpa_supplicant')
+      self.print('wpa_supplicant reports disconnection, killing dhcpcd and wpa_supplicant')
 
       self.kill_dhcpcd()
       self.kill_wpa_supplicant()
 
+      self.print('entering DISCONNECTED state')
       self.state = State.DISCONNECTED
 
   def on_dhcpcd(self, args):
@@ -210,24 +219,26 @@ class WifiConnection(threading.Thread):
     if m != None:
       myip = m.group(1)
       gateway = m.group(2)
-      print('gateway: ' + gateway)
+      self.print('gateway: ' + gateway)
 
     m = re.match(r'adding IP address ([\d\.]+)/(\d+)', msg)
     if m != None:
       myip = m.group(1)
       subnetmask = m.group(2)
-      print('my ip address: ' + myip)
+      self.print('my ip address: ' + myip)
 
     m = re.match(r'adding route to ([\d\.]+)/(\d+)', msg)
     if m != None:
       routeip = m.group(1)
       subnetmask = m.group(2)
-      print('adding route to: ' + routeip + '/' + subnetmask)
+      self.print('adding route to: ' + routeip + '/' + subnetmask)
+      self.state = State.CONNECTED
+      self.print('entering CONNECTED state')
 
     m = re.match(r'adding default route via ([\d\.]+)', msg)
     if m != None:
       gateway = m.group(1)
-      print('adding default route via: ' + gateway)
+      self.print('adding default route via: ' + gateway)
 
 
   def run(self):

@@ -6,6 +6,7 @@ import queue
 import os
 import tempfile
 import pexpect
+import sys
 
 from constants import *
 from eth_cable_monitor import *
@@ -24,10 +25,19 @@ class EthernetConnection(threading.Thread):
     self.dev = dev
     self.event_queue = queue.Queue()
 
+    self.print('entering DISCONNECTED state')
+    self.state = State.DISCONNECTED
+
     self.dhcpcd = None
 
     self.cable_mon_thread = EthernetCableMonitor(self)
     self.cable_mon_thread.start()
+
+  def print(self, msg):
+    sys.stdout.write(self.dev)
+    sys.stdout.write(': ')
+    sys.stdout.write(msg)
+    sys.stdout.write('\n')
 
   def kill_dhcpcd(self):
     try:
@@ -43,11 +53,12 @@ class EthernetConnection(threading.Thread):
 
   def on_cable_state_change(self, args):
     if args == 'disconnected':
-      print('cable disconnected, killing dhcpcd')
+      self.print('cable disconnected, killing dhcpcd')
       self.kill_dhcpcd()
     elif args == 'connected':
-      print('cable connected, starting dhcpcd')
-      self.state = State.CONNECTED
+      self.print('cable connected, starting dhcpcd')
+      self.print('entering CONNECTING state')
+      self.state = State.CONNECTING
       self.start_dhcpcd()
 
   def start_dhcpcd(self):
@@ -98,24 +109,26 @@ class EthernetConnection(threading.Thread):
     if m != None:
       myip = m.group(1)
       gateway = m.group(2)
-      print('gateway: ' + gateway)
+      self.print('gateway: ' + gateway)
 
     m = re.match(r'adding IP address ([\d\.]+)/(\d+)', msg)
     if m != None:
       myip = m.group(1)
       subnetmask = m.group(2)
-      print('my ip address: ' + myip)
+      self.print('my ip address: ' + myip)
 
     m = re.match(r'adding route to ([\d\.]+)/(\d+)', msg)
     if m != None:
       routeip = m.group(1)
       subnetmask = m.group(2)
-      print('adding route to: ' + routeip + '/' + subnetmask)
+      self.print('adding route to: ' + routeip + '/' + subnetmask)
+      self.state = State.CONNECTED
+      self.print('entering CONNECTED state')
 
     m = re.match(r'adding default route via ([\d\.]+)', msg)
     if m != None:
       gateway = m.group(1)
-      print('adding default route via: ' + gateway)
+      self.print('adding default route via: ' + gateway)
 
   def run(self):
     dispatcher = {}
