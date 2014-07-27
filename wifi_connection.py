@@ -100,7 +100,7 @@ class WifiConnection(threading.Thread):
 
       self.kill_wpa_supplicant()
       self.kill_dhcpcd()
-      self.state = DISCONNECTED
+      self.state = State.DISCONNECTED
 
     t = threading.Timer(5.0, self.watchdog)
     t.start()
