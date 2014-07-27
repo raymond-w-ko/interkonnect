@@ -55,5 +55,8 @@ class WifiScanThread(threading.Thread):
       if self.exiting:
         break
       if self.parent.state == wifi_connection.State.DISCONNECTED:
-        self.scan()
+        try:
+          self.scan()
+        except:
+          pass
       time.sleep(WIFI_SCAN_INTERVAL)

@@ -25,11 +25,14 @@ class EthernetCableMonitor(threading.Thread):
         break
 
       f = open(path, 'r')
-      state = int(f.read().strip())
-      f.close()
+      contents = f.read().strip()
+      if len(contents) > 0:
+        state = int(contents)
 
-      if state != self.last_state:
-        self.last_state = state
-        self.event_queue.put(['cable_state_change', m[state]])
+        if state != self.last_state:
+          self.last_state = state
+          self.event_queue.put(['cable_state_change', m[state]])
+
+      f.close()
 
       time.sleep(CABLE_POLL_INTERVALL)
