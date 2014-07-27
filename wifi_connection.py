@@ -7,6 +7,7 @@ import os
 import tempfile
 import pexpect
 import sys
+import datetime
 
 from constants import *
 from wifi_scanner import *
@@ -24,6 +25,7 @@ class WifiConnection(threading.Thread):
     threading.Thread.__init__(self)
 
     self.dev = dev
+    self.exiting = False
     self.event_queue = queue.Queue()
     self.print('entering DISCONNECTED state')
     self.state = State.DISCONNECTED
@@ -36,6 +38,8 @@ class WifiConnection(threading.Thread):
 
     self.scanner_thread = WifiScanThread(self)
     self.scanner_thread.start()
+
+    self.watchdog()
 
   def print(self, msg):
     sys.stdout.write(self.dev)
@@ -62,6 +66,7 @@ class WifiConnection(threading.Thread):
   def cleanup(self):
     self.event_queue.put(['exiting', ''])
     self.scanner_thread.exiting = True
+    self.exiting = True
 
     self.kill_wpa_supplicant()
     self.kill_dhcpcd()
@@ -69,6 +74,36 @@ class WifiConnection(threading.Thread):
     for file in self.temp_files:
       os.remove(file)
     self.temp_files.clear()
+
+  def watchdog(self):
+    if self.exiting:
+      return
+
+    restart = False
+
+    if self.state == State.DISCONNECTED:
+      pass
+    elif self.state == State.CONNECTING:
+      now = datetime.datetime.now()
+      delta = now - self.connecting_start_time
+      secs = delta.total_seconds()
+      if secs > 30.0:
+        restart = True
+    elif self.state == State.CONNECTED:
+      if self.dhcpcd == None or self.wpa_supplicant == None:
+        restart = True
+      elif not self.dhcpcd.isalive() or not self.wpa_supplicant.isalive():
+        restart = True
+
+    if restart:
+      self.print('watchdog tripped, killing processes and resetting state')
+
+      self.kill_wpa_supplicant()
+      self.kill_dhcpcd()
+      self.state = DISCONNECTED
+
+    t = threading.Timer(5.0, self.watchdog)
+    t.start()
 
   def load_credentials(self):
     f = open(os.environ['HOME'] + '/.ssh/wificred')
@@ -93,6 +128,7 @@ class WifiConnection(threading.Thread):
 
     self.print('connecting to wifi station "%s" (%s)' % (station['SSID'], station['bssid']))
     self.print('entering CONNECTING state')
+    self.connecting_start_time = datetime.datetime.now()
     self.state = State.CONNECTING
 
     cred_path = self.prepare_credentials(station)
