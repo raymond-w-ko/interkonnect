@@ -32,7 +32,10 @@ class WifiConnection(threading.Thread):
     self.temp_files = []
 
     self.wpa_supplicant = None
+    self.wpa_supplicant_reader = None
+
     self.dhcpcd = None
+    self.dhcpcd_reader = None
 
     self.load_credentials()
 
@@ -160,9 +163,11 @@ class WifiConnection(threading.Thread):
 
     cmd = '%s -i %s -c %s' % (WPA_SUPPLICANT, self.dev, cred_path)
     self.wpa_supplicant = pexpect.spawn(cmd, timeout=5)
-    self.wpa_supplicant_reader = threading.Thread(target=self.listen_to_wpa_supplicant)
-    self.wpa_supplicant_reader.daemon = True
-    self.wpa_supplicant_reader.start()
+
+    if self.wpa_supplicant_reader == None:
+      self.wpa_supplicant_reader = threading.Thread(target=self.listen_to_wpa_supplicant)
+      self.wpa_supplicant_reader.daemon = True
+      self.wpa_supplicant_reader.start()
 
   def listen_to_wpa_supplicant(self):
     while True:
@@ -196,9 +201,11 @@ class WifiConnection(threading.Thread):
     cmd = cmd % (DHCPCD, self.dev)
 
     self.dhcpcd = pexpect.spawn(cmd, timeout=5)
-    self.dhcpcd_reader = threading.Thread(target=self.listen_to_dhcpcd)
-    self.dhcpcd_reader.daemon = True
-    self.dhcpcd_reader.start()
+
+    if self.dhcpcd_reader == None:
+      self.dhcpcd_reader = threading.Thread(target=self.listen_to_dhcpcd)
+      self.dhcpcd_reader.daemon = True
+      self.dhcpcd_reader.start()
 
   def listen_to_dhcpcd(self):
     while True:
@@ -231,6 +238,7 @@ class WifiConnection(threading.Thread):
     if m == None:
       return
     msg = m.group(1)
+    self.print(msg)
     if msg.startswith('CTRL-EVENT-CONNECTED'):
       self.print('wpa_supplicant reports successful connection, starting dhcpcd')
       self.start_dhcpcd()
