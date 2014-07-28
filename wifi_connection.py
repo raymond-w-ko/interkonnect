@@ -224,14 +224,16 @@ class WifiConnection(threading.Thread):
     # recognized one should be the best
     best_station = None
     for station in stations:
+      if 'SSID' not in station:
+        continue
       ssid = station['SSID']
       if ssid in self.recognized_connections:
         best_station = station
         break
 
-    if station == None:
+    if best_station == None:
       return
-    self.connect(station)
+    self.connect(best_station)
 
   def on_wpa_supplicant(self, args):
     m = re.match(self.dev + ': (.+)', args)

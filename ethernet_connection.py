@@ -29,6 +29,7 @@ class EthernetConnection(threading.Thread):
     self.state = State.DISCONNECTED
 
     self.dhcpcd = None
+    self.dhcpcd_reader = None
 
     self.cable_mon_thread = EthernetCableMonitor(self)
     self.cable_mon_thread.start()
@@ -83,9 +84,11 @@ class EthernetConnection(threading.Thread):
     cmd = cmd % (DHCPCD, self.dev)
 
     self.dhcpcd = pexpect.spawn(cmd, timeout=5)
-    self.dhcpcd_reader = threading.Thread(target=self.listen_to_dhcpcd)
-    self.dhcpcd_reader.daemon = True
-    self.dhcpcd_reader.start()
+
+    if self.dhcpcd_reader == None:
+      self.dhcpcd_reader = threading.Thread(target=self.listen_to_dhcpcd)
+      self.dhcpcd_reader.daemon = True
+      self.dhcpcd_reader.start()
 
   def listen_to_dhcpcd(self):
     while True:
