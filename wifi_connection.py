@@ -37,6 +37,8 @@ class WifiConnection(threading.Thread):
     self.dhcpcd = None
     self.dhcpcd_reader = None
 
+    self.enable_power_save()
+
     self.load_credentials()
 
     self.scanner_thread = WifiScanThread(self)
@@ -49,6 +51,11 @@ class WifiConnection(threading.Thread):
     sys.stdout.write(': ')
     sys.stdout.write(msg)
     sys.stdout.write('\n')
+
+  def enable_power_save(self):
+    cmd = '%s dev %s set power_save on' % (IW, self.dev)
+    self.print('attempting to turn on power save: %s' % (cmd))
+    subprocess.call(cmd, shell=True)
 
   def kill_wpa_supplicant(self):
     try:
