@@ -51,6 +51,7 @@ class EthernetConnection(threading.Thread):
   def cleanup(self):
     self.event_queue.put(['exiting', ''])
     self.cable_mon_thread.exiting = True
+    self.kill_dhcpcd()
 
   def on_cable_state_change(self, args):
     if args == 'disconnected':
