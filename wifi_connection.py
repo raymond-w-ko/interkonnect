@@ -47,6 +47,8 @@ class WifiConnection(threading.Thread):
     self.watchdog()
 
   def print(self, msg):
+    sys.stdout.write(str(datetime.datetime.now()))
+    sys.stdout.write(' ')
     sys.stdout.write(self.dev)
     sys.stdout.write(': ')
     sys.stdout.write(msg)

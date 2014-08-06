@@ -7,6 +7,7 @@ import os
 import tempfile
 import pexpect
 import sys
+import datetime
 
 from constants import *
 from eth_cable_monitor import *
@@ -35,6 +36,8 @@ class EthernetConnection(threading.Thread):
     self.cable_mon_thread.start()
 
   def print(self, msg):
+    sys.stdout.write(str(datetime.datetime.now()))
+    sys.stdout.write(' ')
     sys.stdout.write(self.dev)
     sys.stdout.write(': ')
     sys.stdout.write(msg)
