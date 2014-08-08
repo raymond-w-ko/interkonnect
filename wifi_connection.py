@@ -150,7 +150,7 @@ class WifiConnection(threading.Thread):
     ssid = station['SSID']
     assert ssid in self.recognized_connections
 
-    fd, path = tempfile.mkstemp(prefix='interkonnect', dir='/tmp')
+    fd, path = tempfile.mkstemp(prefix='interkonnect.', dir='/tmp')
     self.temp_files.append(path)
 
     cred = self.recognized_connections[ssid]
@@ -159,11 +159,13 @@ class WifiConnection(threading.Thread):
       p.stdin.write(bytes(cred, 'utf-8'))
       p.stdin.close()
       p.wait(timeout=5)
-      # TODO
-      #fd.close()
     else:
-      # TODO, manually write out an empty simple one
-      assert False
+      os.write(fd, bytes("network={\n", 'utf-8'))
+      os.write(fd, bytes("\tssid=\"%s\"\n" % (ssid), 'utf-8'))
+      os.write(fd, bytes("proto=RSN\n", 'utf-8'))
+      os.write(fd, bytes("key_mgmt=NONE\n", 'utf-8'))
+      os.write(fd, bytes("}\n", 'utf-8'))
+    os.close(fd)
 
     return path
 
