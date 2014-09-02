@@ -97,6 +97,11 @@ class EthernetConnection(threading.Thread):
   def listen_to_dhcpcd(self):
     while True:
       try:
+        # avoid spin loop
+        if self.dhcpcd == None or not self.dhcpcd.isalive():
+          time.sleep(0.1)
+          continue
+
         line = self.dhcpcd.readline()
         line = line.decode('utf-8').strip()
         if len(line) > 0:
