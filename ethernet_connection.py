@@ -20,9 +20,10 @@ class State:
   CONNECTED = 1
 
 class EthernetConnection(threading.Thread):
-  def __init__(self, dev):
+  def __init__(self, parent, dev):
     threading.Thread.__init__(self)
 
+    self.parent = parent
     self.dev = dev
     self.event_queue = queue.Queue()
 
@@ -64,6 +65,7 @@ class EthernetConnection(threading.Thread):
       self.print('cable connected, starting dhcpcd')
       self.print('entering CONNECTING state')
       self.state = State.CONNECTING
+      self.parent.flush_device_ip_addr(self.dev)
       self.start_dhcpcd()
 
   def start_dhcpcd(self):

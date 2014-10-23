@@ -21,9 +21,10 @@ class State:
 
 class WifiConnection(threading.Thread):
 
-  def __init__(self, dev):
+  def __init__(self, parent, dev):
     threading.Thread.__init__(self)
 
+    self.parent = parent
     self.dev = dev
     self.exiting = False
     self.event_queue = queue.Queue()
@@ -263,6 +264,7 @@ class WifiConnection(threading.Thread):
     msg = m.group(1)
     self.print(msg)
     if msg.startswith('CTRL-EVENT-CONNECTED'):
+      self.parent.flush_device_ip_addr(self.dev)
       self.print('wpa_supplicant reports successful connection, starting dhcpcd')
       self.start_dhcpcd()
     elif msg.startswith('CTRL-EVENT-DISCONNECTED'):

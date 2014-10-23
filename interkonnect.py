@@ -55,6 +55,11 @@ class InterKonnect:
     print('bringing device up (%s)' % (cmd))
     subprocess.check_call(cmd, shell=True)
 
+  def flush_device_ip_addr(self, dev):
+    cmd = '%s addr flush %s' % (IP, dev)
+    print('flushing IP addr of device (%s)' % (cmd))
+    subprocess.check_call(cmd, shell=True)
+
   def install_ctrl_c_handler(self):
     self.num_interrupts = 0
 
@@ -82,10 +87,10 @@ class InterKonnect:
     self.bring_device_up(self.eth_dev)
     self.bring_device_up(self.wifi_dev)
 
-    self.wifi_connection = WifiConnection(self.wifi_dev)
+    self.wifi_connection = WifiConnection(self, self.wifi_dev)
     self.wifi_connection.start()
 
-    self.ethernet_connection = EthernetConnection(self.eth_dev)
+    self.ethernet_connection = EthernetConnection(self, self.eth_dev)
     self.ethernet_connection.start()
 
     while True:
