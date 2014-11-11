@@ -81,8 +81,8 @@ class WifiConnection(threading.Thread):
     self.scanner_thread.exiting = True
     self.exiting = True
 
-    self.kill_wpa_supplicant()
     self.kill_dhcpcd()
+    self.kill_wpa_supplicant()
 
     for file in self.temp_files:
       os.remove(file)
@@ -111,8 +111,8 @@ class WifiConnection(threading.Thread):
     if restart:
       self.print('watchdog tripped, killing processes and resetting state')
 
-      self.kill_wpa_supplicant()
       self.kill_dhcpcd()
+      self.kill_wpa_supplicant()
       self.state = State.DISCONNECTED
 
     t = threading.Timer(5.0, self.watchdog)
