@@ -45,7 +45,7 @@ class WifiConnection(threading.Thread):
     self.scanner_thread = WifiScanThread(self)
     self.scanner_thread.start()
 
-    self.watchdog()
+    self.queue_watchdog_request()
 
     self.queue_listen_to_wpa_supplicant_request()
     self.queue_listen_to_dhcpcd_request()
@@ -91,7 +91,10 @@ class WifiConnection(threading.Thread):
       os.remove(file)
     self.temp_files.clear()
 
-  def watchdog(self):
+  def queue_watchdog_request(selfon_wpa_supplicant):
+    self.event_queue.put(['watchdog', ''])
+
+  def watchdog(self, args):
     if self.exiting:
       return
 
@@ -118,8 +121,7 @@ class WifiConnection(threading.Thread):
       self.kill_wpa_supplicant()
       self.state = State.DISCONNECTED
 
-    t = threading.Timer(5.0, self.watchdog)
-    t.start()
+    threading.Timer(5.0, self.queue_watchdog_request).start()
 
   def load_credentials(self):
     f = open(os.environ['HOME'] + '/.ssh/wificred')
@@ -318,6 +320,7 @@ class WifiConnection(threading.Thread):
   def run(self):
     dispatcher = {}
     dispatcher['wifi_stations'] = self.on_wifi_stations
+    dispatcher['watchdog'] = self.watchdog
     dispatcher['wpa_supplicant'] = self.on_wpa_supplicant
     dispatcher['listen_to_wpa_supplicant'] = self.on_listen_to_wpa_supplicant
     dispatcher['dhcpcd'] = self.on_dhcpcd
