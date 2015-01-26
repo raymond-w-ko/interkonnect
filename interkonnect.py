@@ -18,9 +18,9 @@ class InterKonnect:
     self.eth_dev = None
     self.wifi_dev = None
 
+    self.ethernet_connection = None
     self.wifi_connection = None
 
-    # TODO: remove this
     self.event_queue = queue.Queue()
 
   def discover_devices(self):
@@ -55,6 +55,11 @@ class InterKonnect:
     print('bringing device up (%s)' % (cmd))
     subprocess.check_call(cmd, shell=True)
 
+  def bring_device_down(self, dev):
+    cmd = '%s link set %s down' % (IP, dev)
+    print('bringing device down (%s)' % (cmd))
+    subprocess.check_call(cmd, shell=True)
+
   def flush_device_ip_addr(self, dev):
     cmd = '%s addr flush %s' % (IP, dev)
     print('flushing IP addr of device (%s)' % (cmd))
@@ -74,6 +79,12 @@ class InterKonnect:
         self.wifi_connection.cleanup()
       if self.ethernet_connection != None:
         self.ethernet_connection.cleanup()
+
+      self.flush_device_ip_addr(self.eth_dev)
+      self.bring_device_down(self.eth_dev)
+
+      self.flush_device_ip_addr(self.wifi_dev)
+      self.bring_device_down(self.wifi_dev)
 
       import hanging_threads
       sys.exit(0)

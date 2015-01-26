@@ -31,10 +31,12 @@ class EthernetConnection(threading.Thread):
     self.state = State.DISCONNECTED
 
     self.dhcpcd = None
-    self.dhcpcd_reader = None
+    self.prev_data = ''
 
     self.cable_mon_thread = EthernetCableMonitor(self)
     self.cable_mon_thread.start()
+
+    self.queue_listen_to_dhcpcd_request()
 
   def print(self, msg):
     sys.stdout.write(str(datetime.datetime.now()))
@@ -91,26 +93,6 @@ class EthernetConnection(threading.Thread):
 
     self.dhcpcd = pexpect.spawn(cmd, timeout=5)
 
-    if self.dhcpcd_reader == None:
-      self.dhcpcd_reader = threading.Thread(target=self.listen_to_dhcpcd)
-      self.dhcpcd_reader.daemon = True
-      self.dhcpcd_reader.start()
-
-  def listen_to_dhcpcd(self):
-    while True:
-      try:
-        # avoid spin loop
-        if self.dhcpcd == None or not self.dhcpcd.isalive():
-          time.sleep(0.1)
-          continue
-
-        line = self.dhcpcd.readline()
-        line = line.decode('utf-8').strip()
-        if len(line) > 0:
-          self.event_queue.put(['dhcpcd', line])
-      except:
-        pass
-
   def on_dhcpcd(self, args):
     m = re.match(r'dhcpcd\[(\d+)\]: (.+): (.+)', args)
     if m == None:
@@ -124,12 +106,14 @@ class EthernetConnection(threading.Thread):
       myip = m.group(1)
       gateway = m.group(2)
       self.print('gateway: ' + gateway)
+      return
 
     m = re.match(r'adding IP address ([\d\.]+)/(\d+)', msg)
     if m != None:
       myip = m.group(1)
       subnetmask = m.group(2)
       self.print('my ip address: ' + myip)
+      return
 
     m = re.match(r'adding route to ([\d\.]+)/(\d+)', msg)
     if m != None:
@@ -138,16 +122,40 @@ class EthernetConnection(threading.Thread):
       self.print('adding route to: ' + routeip + '/' + subnetmask)
       self.state = State.CONNECTED
       self.print('entering CONNECTED state')
+      return
 
     m = re.match(r'adding default route via ([\d\.]+)', msg)
     if m != None:
       gateway = m.group(1)
       self.print('adding default route via: ' + gateway)
+      return
+
+  def queue_listen_to_dhcpcd_request(self):
+    self.event_queue.put(['listen_to_dhcpcd', ''])
+
+  def on_listen_to_dhcpcd(self, args):
+    if self.dhcpcd is not None:
+      try:
+        data = self.dhcpcd.read_nonblocking(9001, 0)
+        data = data.decode('utf-8')
+        data = self.prev_data + data
+        tokens = data.split('\n')
+        if not tokens[-1].endswith('\n'):
+          self.prev_data = tokens[-1]
+          tokens.pop()
+        else:
+          self.prev_data = ''
+        for token in tokens:
+          self.event_queue.put(['dhcpcd', token.strip()])
+      except:
+        pass
+    threading.Timer(0.25, self.queue_listen_to_dhcpcd_request).start()
 
   def run(self):
     dispatcher = {}
     dispatcher['cable_state_change'] = self.on_cable_state_change
     dispatcher['dhcpcd'] = self.on_dhcpcd
+    dispatcher['listen_to_dhcpcd'] = self.on_listen_to_dhcpcd
 
     while True:
       event = self.event_queue.get()

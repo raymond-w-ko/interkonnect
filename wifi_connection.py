@@ -33,10 +33,10 @@ class WifiConnection(threading.Thread):
     self.temp_files = []
 
     self.wpa_supplicant = None
-    self.wpa_supplicant_reader = None
+    self.wpa_supplicant_prev_data = ''
 
     self.dhcpcd = None
-    self.dhcpcd_reader = None
+    self.dhcpcd_prev_data = ''
 
     self.enable_power_save()
 
@@ -46,6 +46,9 @@ class WifiConnection(threading.Thread):
     self.scanner_thread.start()
 
     self.watchdog()
+
+    self.queue_listen_to_wpa_supplicant_request()
+    self.queue_listen_to_dhcpcd_request()
 
   def print(self, msg):
     sys.stdout.write(str(datetime.datetime.now()))
@@ -176,25 +179,26 @@ class WifiConnection(threading.Thread):
     cmd = '%s -i %s -c %s' % (WPA_SUPPLICANT, self.dev, cred_path)
     self.wpa_supplicant = pexpect.spawn(cmd, timeout=5)
 
-    if self.wpa_supplicant_reader == None:
-      self.wpa_supplicant_reader = threading.Thread(target=self.listen_to_wpa_supplicant)
-      self.wpa_supplicant_reader.daemon = True
-      self.wpa_supplicant_reader.start()
+  def queue_listen_to_wpa_supplicant_request(self):
+    self.event_queue.put(['listen_to_wpa_supplicant', ''])
 
-  def listen_to_wpa_supplicant(self):
-    while True:
+  def on_listen_to_wpa_supplicant(self, args):
+    if self.wpa_supplicant is not None:
       try:
-        # avoid spin loop
-        if self.wpa_supplicant == None or not self.wpa_supplicant.isalive():
-          time.sleep(0.1)
-          continue
-
-        line = self.wpa_supplicant.readline()
-        line = line.decode('utf-8').strip()
-        if len(line) > 0:
-          self.event_queue.put(['wpa_supplicant', line])
+        data = self.wpa_supplicant.read_nonblocking(9001, 0)
+        data = data.decode('utf-8')
+        data = self.wpa_supplicant_prev_data + data
+        tokens = data.split('\n')
+        if not tokens[-1].endswith('\n'):
+          self.wpa_supplicant_prev_data = tokens[-1]
+          tokens.pop()
+        else:
+          self.wpa_supplicant_prev_data = ''
+        for token in tokens:
+          self.event_queue.put(['wpa_supplicant', token.strip()])
       except:
         pass
+    threading.Timer(0.25, self.queue_listen_to_wpa_supplicant_request).start()
 
   def start_dhcpcd(self):
     self.kill_dhcpcd()
@@ -219,25 +223,26 @@ class WifiConnection(threading.Thread):
 
     self.dhcpcd = pexpect.spawn(cmd, timeout=5)
 
-    if self.dhcpcd_reader == None:
-      self.dhcpcd_reader = threading.Thread(target=self.listen_to_dhcpcd)
-      self.dhcpcd_reader.daemon = True
-      self.dhcpcd_reader.start()
+  def queue_listen_to_dhcpcd_request(self):
+    self.event_queue.put(['listen_to_dhcpcd', ''])
 
-  def listen_to_dhcpcd(self):
-    while True:
+  def on_listen_to_dhcpcd(self, args):
+    if self.dhcpcd is not None:
       try:
-        # avoid spin loop
-        if self.dhcpcd == None or not self.dhcpcd.isalive():
-          time.sleep(0.1)
-          continue
-
-        line = self.dhcpcd.readline()
-        line = line.decode('utf-8').strip()
-        if len(line) > 0:
-          self.event_queue.put(['dhcpcd', line])
+        data = self.dhcpcd.read_nonblocking(9001, 0)
+        data = data.decode('utf-8')
+        data = self.dhcpcd_prev_data + data
+        tokens = data.split('\n')
+        if not tokens[-1].endswith('\n'):
+          self.dhcpcd_prev_data = tokens[-1]
+          tokens.pop()
+        else:
+          self.dhcpcd_prev_data = ''
+        for token in tokens:
+          self.event_queue.put(['dhcpcd', token.strip()])
       except:
         pass
+    threading.Timer(0.25, self.queue_listen_to_dhcpcd_request).start()
 
   def on_wifi_stations(self, args):
     stations = args
@@ -314,7 +319,9 @@ class WifiConnection(threading.Thread):
     dispatcher = {}
     dispatcher['wifi_stations'] = self.on_wifi_stations
     dispatcher['wpa_supplicant'] = self.on_wpa_supplicant
+    dispatcher['listen_to_wpa_supplicant'] = self.on_listen_to_wpa_supplicant
     dispatcher['dhcpcd'] = self.on_dhcpcd
+    dispatcher['listen_to_dhcpcd'] = self.on_listen_to_dhcpcd
 
     while True:
       event = self.event_queue.get()
