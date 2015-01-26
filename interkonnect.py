@@ -91,6 +91,14 @@ class InterKonnect:
 
     signal.signal(signal.SIGINT, signal_handler)
 
+  def suppress_wifi(self):
+    print('suppressing WiFi')
+    self.wifi_connection.event_queue.put(['suppress', ''])
+
+  def unsuppress_wifi(self):
+    print('unsuppressing WiFi')
+    self.wifi_connection.event_queue.put(['unsuppress', ''])
+
   def run(self):
     self.install_ctrl_c_handler()
 

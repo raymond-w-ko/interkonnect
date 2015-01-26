@@ -54,7 +54,7 @@ class WifiScanThread(threading.Thread):
     while True:
       if self.exiting:
         break
-      if self.parent.state == wifi_connection.State.DISCONNECTED:
+      if self.parent.state == wifi_connection.State.DISCONNECTED and not self.parent.suppressed:
         try:
           self.scan()
         except:

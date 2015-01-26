@@ -63,6 +63,8 @@ class EthernetConnection(threading.Thread):
     if args == 'disconnected':
       self.print('cable disconnected, killing dhcpcd')
       self.kill_dhcpcd()
+      self.parent.flush_device_ip_addr(self.dev)
+      self.parent.unsuppress_wifi()
     elif args == 'connected':
       self.print('cable connected, starting dhcpcd')
       self.print('entering CONNECTING state')
@@ -122,6 +124,7 @@ class EthernetConnection(threading.Thread):
       self.print('adding route to: ' + routeip + '/' + subnetmask)
       self.state = State.CONNECTED
       self.print('entering CONNECTED state')
+      self.parent.suppress_wifi()
       return
 
     m = re.match(r'adding default route via ([\d\.]+)', msg)

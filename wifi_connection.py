@@ -27,6 +27,7 @@ class WifiConnection(threading.Thread):
     self.parent = parent
     self.dev = dev
     self.exiting = False
+    self.suppressed = False
     self.event_queue = queue.Queue()
     self.print('entering DISCONNECTED state')
     self.state = State.DISCONNECTED
@@ -91,7 +92,7 @@ class WifiConnection(threading.Thread):
       os.remove(file)
     self.temp_files.clear()
 
-  def queue_watchdog_request(selfon_wpa_supplicant):
+  def queue_watchdog_request(self):
     self.event_queue.put(['watchdog', ''])
 
   def watchdog(self, args):
@@ -100,7 +101,9 @@ class WifiConnection(threading.Thread):
 
     restart = False
 
-    if self.state == State.DISCONNECTED:
+    if self.suppressed:
+      pass
+    elif self.state == State.DISCONNECTED:
       pass
     elif self.state == State.CONNECTING:
       now = datetime.datetime.now()
@@ -316,6 +319,16 @@ class WifiConnection(threading.Thread):
       gateway = m.group(1)
       self.print('adding default route via: ' + gateway)
 
+  def suppress(self, args):
+    self.suppressed = True
+    self.kill_dhcpcd()
+    self.kill_wpa_supplicant()
+    self.parent.flush_device_ip_addr(self.dev)
+    self.print('entering DISCONNECTED state')
+    self.state = State.DISCONNECTED
+
+  def unsuppress(self, args):
+    self.suppressed = False
 
   def run(self):
     dispatcher = {}
@@ -325,6 +338,8 @@ class WifiConnection(threading.Thread):
     dispatcher['listen_to_wpa_supplicant'] = self.on_listen_to_wpa_supplicant
     dispatcher['dhcpcd'] = self.on_dhcpcd
     dispatcher['listen_to_dhcpcd'] = self.on_listen_to_dhcpcd
+    dispatcher['suppress'] = self.suppress
+    dispatcher['unsuppress'] = self.unsuppress
 
     while True:
       event = self.event_queue.get()
