@@ -96,12 +96,17 @@ class EthernetConnection(threading.Thread):
     self.dhcpcd = pexpect.spawn(cmd, timeout=5)
 
   def on_dhcpcd(self, args):
-    m = re.match(r'dhcpcd\[(\d+)\]: (.+): (.+)', args)
+    #m = re.match(r'dhcpcd\[(\d+)\]: (.+): (.+)', args)
+    #if m == None:
+      #return
+    #pid = m.group(1)
+    #dev = m.group(2)
+    #msg = m.group(3)
+    m = re.match(r'(.+?): (.+)', args)
     if m == None:
       return
-    pid = m.group(1)
-    dev = m.group(2)
-    msg = m.group(3)
+    dev = m.group(1)
+    msg = m.group(2)
 
     m = re.match(r'acknowledged ([\d\.]+) from ([\d\.]+)', msg)
     if m != None:
