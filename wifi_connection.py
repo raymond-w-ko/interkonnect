@@ -39,7 +39,7 @@ class WifiConnection(threading.Thread):
     self.dhcpcd = None
     self.dhcpcd_prev_data = ''
 
-    self.enable_power_save()
+    self.disable_power_save()
 
     self.load_credentials()
 
@@ -62,6 +62,11 @@ class WifiConnection(threading.Thread):
   def enable_power_save(self):
     cmd = '%s dev %s set power_save on' % (IW, self.dev)
     self.print('attempting to turn on power save: %s' % (cmd))
+    subprocess.call(cmd, shell=True)
+
+  def disable_power_save(self):
+    cmd = '%s dev %s set power_save off' % (IW, self.dev)
+    self.print('attempting to turn off power save: %s' % (cmd))
     subprocess.call(cmd, shell=True)
 
   def kill_wpa_supplicant(self):
@@ -268,6 +273,7 @@ class WifiConnection(threading.Thread):
     self.connect(best_station)
 
   def on_wpa_supplicant(self, args):
+    print('******** ' + args)
     m = re.match(self.dev + ': (.+)', args)
     if m == None:
       return
@@ -287,6 +293,7 @@ class WifiConnection(threading.Thread):
       self.state = State.DISCONNECTED
 
   def on_dhcpcd(self, args):
+    print('******** ' + args)
     #m = re.match(r'dhcpcd\[(\d+)\]: (.+): (.+)', args)
     #if m == None:
       #return

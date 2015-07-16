@@ -96,6 +96,7 @@ class EthernetConnection(threading.Thread):
     self.dhcpcd = pexpect.spawn(cmd, timeout=5)
 
   def on_dhcpcd(self, args):
+    print('******** ' + args)
     #m = re.match(r'dhcpcd\[(\d+)\]: (.+): (.+)', args)
     #if m == None:
       #return
