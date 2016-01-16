@@ -255,6 +255,9 @@ class WifiConnection(threading.Thread):
     threading.Timer(0.25, self.queue_listen_to_dhcpcd_request).start()
 
   def on_wifi_stations(self, args):
+    if self.suppressed:
+      return
+
     stations = args
 
     # since the list should already be sorted by signal strength, the first
