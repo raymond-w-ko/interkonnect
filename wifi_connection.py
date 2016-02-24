@@ -169,15 +169,18 @@ class WifiConnection(threading.Thread):
 
     cred = self.recognized_connections[ssid]
     if len(cred) > 0:
-      p = subprocess.Popen([WPA_PASSPHRASE, ssid], stdout = fd, stdin = subprocess.PIPE)
-      p.stdin.write(bytes(cred, 'utf-8'))
-      p.stdin.close()
-      p.wait(timeout=5)
+      os.write(fd, bytes("network={\n", 'utf-8'))
+      os.write(fd, bytes("\tssid=\"%s\"\n" % (ssid), 'utf-8'))
+      os.write(fd, bytes("\tscan_ssid=1\n", 'utf-8'))
+      os.write(fd, bytes("\tpsk=\"", 'utf-8'))
+      os.write(fd, bytes(cred, 'utf-8'))
+      os.write(fd, bytes("\"\n", 'utf-8'))
+      os.write(fd, bytes("}\n", 'utf-8'))
     else:
       os.write(fd, bytes("network={\n", 'utf-8'))
       os.write(fd, bytes("\tssid=\"%s\"\n" % (ssid), 'utf-8'))
-      os.write(fd, bytes("proto=RSN\n", 'utf-8'))
-      os.write(fd, bytes("key_mgmt=NONE\n", 'utf-8'))
+      os.write(fd, bytes("\tproto=RSN\n", 'utf-8'))
+      os.write(fd, bytes("\tkey_mgmt=NONE\n", 'utf-8'))
       os.write(fd, bytes("}\n", 'utf-8'))
     os.close(fd)
 
