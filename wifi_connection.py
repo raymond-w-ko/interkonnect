@@ -140,6 +140,8 @@ class WifiConnection(threading.Thread):
     for line in lines:
       if len(line) == 0:
         continue
+      if line.startswith("#"):
+        continue
       index = line.find(',')
       ssid = line[0:index]
       cred = line[index+1:]
